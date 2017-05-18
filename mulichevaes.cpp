@@ -125,60 +125,83 @@ void mulichevaes::lab2()
  */
 void mulichevaes::lab3()
 {
-
-
-
- double **L;
-    L = new double*[N];
-    for (int i = 0;  i < N; i++) {
-        L[i] = new double[N];
-        memset(L[i], 0, sizeof(double)*N);
+	//Пусть матрица А симметричная и положительная? , тогда она представима в виде A=L*LT, где LT это транспонированная матрица L
+    double **L = new double*[N];
+    double **LT = new double*[N];
+    double *D = new double[N];
+    for(int i=0; i<N; i++)
+    {
+       L[i] = new double[N];
+       LT[i] = new double[N];
+       D[i]=0;
+       for(int j=0; j<N; j++)
+       {
+           L[i][j]=0;
+       }
     }
-    double *y;
-    y = new double[N];
+    //вычисляем D и L
+    //L нижне треугольная матрица, находится согласно формулам метода
+    
+    for(int i=0; i<N; i++)
+    {
+        double isum = 0;
+        for(int k=0; k<i; k++)
+                isum += std::abs(L[k][i]) * std::abs(L[k][i]) * D[k];
 
+        if((A[i][i] - isum) > 0)
+            D[i] = 1;
+        else
+            D[i] = -1;
 
-    for (int i = 0; i < N; i++) {
-        double sumikjk = 0;
+        L[i][i] = sqrt(std::abs(A[i][i] - isum));
 
-        for (int j = 0; j < i; j++) { // поиск эл/ слева от диагонали
-            sumikjk = 0;
-            for (int k = 0; k < j; k++)
-                sumikjk += L[i][k] * L[j][k];
-            L[i][j] = (A[i][j] - sumikjk) / L[j][j];
+        for(int j=i+1; j<N; j++)
+        {
+            double sum=0;
+            for(int k=0; k<i; k++)
+                sum += L[k][i] * L[k][j] * D[k];
+            L[i][j] = (A[i][j] - sum) / (L[i][i] * D[i]);
         }
-
-        sumikjk = 0;
-        for (int k = 0; k < i; k++)
-            sumikjk += L[i][k] * L[i][k];
-        L[i][i] = sqrt(A[i][i] - sumikjk);
-
+    }
+    //транспонируем L
+    for(int i=0; i<N; i++)
+        for(int j=0; j<N; j++)
+            LT[i][j] = L[j][i];
+    //умножаем LT на D
+    for(int i = 0; i < N; i++)
+        for(int j = 0; j < N; j++)
+            LT[i][j] *= D[j];
+         // Теперь вместо одной матрицы Ax=B можем получить систему из двух LT*y=B,L*x=y найдём решение  выразив сперва y, а потом уже искомый x
+    //LT*D * y = b
+    double *y = new double[N];
+    for(int i=0; i<N; i++)
+    {
+        double s=0;
+        for(int j=0; j<i; j++)
+            s += y[j] * LT[i][j];
+        y[i]=(b[i]-s)/LT[i][i];
+    }
+    //L * x = y
+    for(int i=N-1; i>=0; i--)
+    {
+        double s=0;
+        for(int j=i+1; j<N; j++)
+            s += x[j] * L[i][j];
+        x[i]=(y[i] - s)/L[i][i];
     }
 
-
-    y[0] = b[0];
-    for (int i = 1; i < N ; ++i) {
-        y[i] = b[i];
-        for (int j = 0; j < i; ++j) {
-            y[i] -= y[j]*L[i][j];
-        }
-        y[i] /= L[i][i];
+    for(int i=0; i<N; i++)
+    {
+        delete [] L[i];
+        delete [] LT[i];
     }
-
-    x[N - 1] = y[N - 1];
-    for (int i = N - 2; i >= 0; i--) {
-        x[i] = y[i];
-        for (int j = i + 1; j < N; ++j)
-            x[i] -= x[j] * L[j][i];
-        x[i] /= L[i][i];
-    }
-
-
-    for (int i = 0; i < N; i++)
-        delete[] L[i];
-    delete[] L;
-    delete[] y;
+    delete [] L;
+    delete [] LT;
+    delete [] D;
+    delete [] y;
 }
+
+
 
 
 /**
@@ -230,28 +253,39 @@ void mulichevaes::lab4()
  */
 void mulichevaes::lab5()
 {
-double eps = 0.0001;
-    double* B = new double[N];
-    double norma;
+    double *xold = new double[N];
+    for (int i=0; i<N; i++)
+    {
+        x[i]=0; // первоначальное новое решение
+    }
+    double p=0.0;
+    double eps=1e-20;
+    int k=0;
+    do
+    {
+        k++;
+        p=0.0;
+        for(int i=0; i<N; i++)
+            xold[i]=x[i]; // здесь записывается предыдущее решение
+        for(int i=0; i<N; i++)
+        {
+            double s=0; //вычисляем s, но мы не берём диагональные элементы
+            for(int j=0; j<i; j++)
+                s += A[i][j] * xold[j];
+            for(int j=i+1; j<N; j++)
+                s += A[i][j] * xold[j];
+            x[i]=(b[i] - s)/A[i][i]; // вычисляется новое решение 
+        }
+        p= std::abs(xold[0]-x[0]);
+        for(int i=0; i<N; i++)
+        {
+            if(std::abs(xold[i]-x[i]) > p) 
+                p = std::abs(xold[i]-x[i]);//максимальная разница между предыдущим решением и текущим.
+        }
+    } while(p >= eps);
+    std::cout << "Чиcло итераций : " << k << std::endl;
 
-    do 
-	{
-        for (int i = 0; i < N; i++) {
-            B[i] = b[i];
-            for (int j = 0; j < N; j++) {
-                if (i != j)
-                    B[i] -= A[i][j] * x[j];
-            }
-            B[i] /= A[i][i];
-        }
-        norma = abs(x[0] - B[0]);
-        for (int j = 0; j < N; j++) {
-            if (abs(x[j] - B[j]) > norma)
-                norma = abs(x[j] - B[j]);
-            x[j] = B[j];
-        }
-    } while (norma >= eps);
-    delete[] B;
+    delete [] xold;
 }
 
 
@@ -263,30 +297,41 @@ double eps = 0.0001;
  */
 void mulichevaes::lab6()
 {
-double eps = 0.0001;
-    double* B = new double[N];
-    double norma;
-
-    do 
-	{
-        for (int i = 0; i < N; i++) {
-            B[i] = b[i];
-            for (int j = 0; j < N; j++) {
-                if (i != j)
-                    B[i] -= A[i][j] * x[j];
-            }
-            B[i] /= A[i][i];
+    double *xold = new double[N];
+    for (int i=0; i<N; i++)
+    {
+        x[i]=0; // начальное приближение
+    }
+    double p=0.0;
+    double eps=1e-20;
+    int k=0;
+    do
+    {
+        k++;
+        p=0.0;
+        for(int i=0; i<N; i++)
+            xold[i]=x[i];
+        for(int i=0; i<N; i++)
+        {
+            double s=0;
+            for(int j=0; j<i; j++)
+                s += A[i][j] * x[j];
+            for(int j=i+1; j<N; j++)
+                s += A[i][j] * xold[j];
+            x[i]=(b[i] - s)/A[i][i];
         }
-        norma = abs(x[0] - B[0]);
-        for (int j = 0; j < N; j++) {
-            if (abs(x[j] - B[j]) > norma)
-                norma = abs(x[j] - B[j]);
-            x[j] = B[j];
+        for(int i=0; i<N; i++)
+        {
+            if(std::abs(xold[i]-x[i]) > p)
+                p = std::abs(xold[i]-x[i]);
         }
-    } while (norma >= eps);
-    delete[] B;
 
+    } while(p >= eps);
+    std::cout << "Чиcло итераций : " << k << std::endl;
+
+    delete [] xold;
 }
+
 
 
 
